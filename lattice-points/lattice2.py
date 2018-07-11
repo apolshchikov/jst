@@ -140,9 +140,16 @@ def calculate_area(arr):
 
 
 def triangle(arr):
-    v = np.roll(arr, 1) - arr
-
+    shifted = np.roll(arr, -1, axis=0)
+    v = shifted - arr
+    v = np.array([[1, 1, -1], [1, 1, -1]]).dot(v)
     print(v)
+    norms = np.apply_along_axis(np.linalg.norm, 1, v)
+    shifted_norms = np.roll(norms, -1, axis=0)
+
+    # num = np.dot(norms, shifted_norms)
+
+    print(norms)
 
 
 def generate_combinations(points, n):
