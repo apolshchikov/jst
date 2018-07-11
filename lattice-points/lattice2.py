@@ -64,8 +64,8 @@ class Triangle(g.Triangle):
 
         xvector = g.Line(p1=origin, p2=g.Point(1, 0))
         angle_segments = []
-        for os in origin_sides:
 
+        for os in origin_sides:
             if os.p1 == origin:
                 other = os.p2
             else:
@@ -75,6 +75,7 @@ class Triangle(g.Triangle):
             angle_segments.append((float(angle), sg_orient))
 
         print(angle_segments)
+
         rotate_angle, rotate_segment = max(angle_segments, key=lambda t: float(t[0]))
         print(rotate_angle, rotate_segment)
 
@@ -89,6 +90,8 @@ class Triangle(g.Triangle):
 
         # Reflect the triangle about its base midpoint if the angle from the origin is less than or equal to 45
         origin_angle = float(t_rot.angles[origin])
+
+        print(t_fix)
 
         base_points = []
         alterior_vertex = None
@@ -111,56 +114,86 @@ class Triangle(g.Triangle):
 
         return t
 
+    def to_array(self):
+        vertices = [[float(v.x), float(v.y)] for v in self.vertices]
+        return np.array(vertices)
+
+
+def generate_lattice(min_x, min_y, max_x, max_y):
+    g = np.mgrid[min_x:max_x + 1, min_y:max_y + 1]
+    pos = np.vstack(map(np.ravel, g)).T
+
+    return pos
+
+
+def check_linear(arr):
+    test = np.all(arr == arr[0, :], axis=0)
+    return any(test)
+
+
+def calculate_area(arr):
+    ones = np.ones((3, 1))
+    t = np.hstack((ones, arr))
+    area = float(0.5) * abs(np.linalg.det(t.T))
+
+    return area
+
+
+def triangle(arr):
+    v = np.roll(arr, 1) - arr
+
+    print(v)
+
+
+def generate_combinations(points, n):
+    combinations = np.array(list(itr.combinations(points, r=3)))
+    valid_combinations = []
+
+    for c in combinations:
+        check_nonlinear = not check_linear(c)
+
+        area = calculate_area(c)
+        check_area = np.isclose([area - np.power(2, n)], [0], atol=TOLERANCE)
+
+        checks = [check_nonlinear, check_area]
+        if all(checks):
+            valid_combinations.append(c)
+
+    return np.array(valid_combinations)
+
+
+def valid_triangles(combinations):
+    vt = []
+    for c in combinations:
+        points = [g.Point(*xy) for xy in c]
+        t = Triangle(*points)
+        print(c)
+        print(t.standardize())
+
 
 def generate_triangles(n: int):
-    min_x = -np.power(2, float(n+1))
-    max_x = np.power(2, float(n+1))
+    min_x = -np.power(2, float(n))
+    max_x = np.power(2, float(n))
 
     min_y = min_x
     max_y = max_x
 
-    #points = []
-    #for x in np.arange(min_x, max_x, step=1):
-    #    for y in np.arange(min_y, max_y, step=1):
-    #        points.append(g.Point(x, y))
+    points = generate_lattice(min_x, min_y, max_x, max_y)
+    combinations = generate_combinations(points, n)
 
-    x_dist = int(max_x) - int(min_x) + 1
-    y_dist = int(max_y) - int(min_y) + 1
-    xs = np.linspace(min_x, max_x, num=x_dist)
-    ys = np.linspace(min_y, max_y, num=y_dist)
-
-    grid = np.meshgrid(xs, ys, indexing='xy')
-    grid = np.array([grid[0], grid[1]])
-    n, rows, cols = grid.shape
-    points = [g.Point(*tuple(grid[:, i, j])) for i in range(0, rows) for j in range(0, cols)]
-
-    print(len(points))
-
-    combinations = list(itr.combinations(points, r=3))
-    row = lambda c_: [float(1), float(c_.x), float(c_.y)]
-    matrix = lambda c: np.array([row(c[0]), row(c[1]), row(c[2])])
-    valid_combinations = []
-
-    for c in combinations:
-        comp1 = (float(c[1].x) - float(c[0].x)) * (float(c[2].y) - float(c[0].y))
-        comp2 = (float(c[1].y) - float(c[0].y)) * (float(c[2].x) - float(c[0].x))
-        area = float(0.5) * abs(comp1 - comp2)
-
-        if area == float(np.power(2, n)):
-            valid_combinations.append(c)
-
-
-    #for c in combinations:
-    #    mat = matrix(c).T
-    #    area = float(0.5) * np.linalg.det(mat)
-    #    if float(area) == float(np.power(2, n)):
-    #        valid_combinations.append(c)
-
-
-    # triangles = [Triangle(*c) for c in valid_combinations]
-    print(len(combinations))
-    return valid_combinations
+    return len(combinations)
 
 
 if __name__ == "__main__":
-    print(generate_triangles(2))
+    k = 1
+    min_x = -np.power(2, k)
+    max_x = np.power(2, k)
+    min_y = min_x
+    max_y = max_x
+
+    ps = generate_lattice(min_x, min_y, max_x, max_y)
+    combs = generate_combinations(ps, k)
+    t1 = combs[1:6]
+    # valid_triangles(t1)
+    triangle(t1[0])
+    # [print(generate_triangles(i)) for i in range(1, 3)]
