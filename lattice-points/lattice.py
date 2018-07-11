@@ -5,10 +5,12 @@ import matplotlib.patches as patches
 from matplotlib.collections import PatchCollection
 import sympy.geometry as g
 
+import itertools as itr
+
 TOLERANCE = float(1e-6)
 
 
-def generate_base_region(n: int):
+def _generate_base_region(n: int):
     # Generate the region where all bases can lie in the first quadrant. The region is a quarter circle.
     # Find all lattice points within the region
     min_x = 1
@@ -35,6 +37,23 @@ def generate_base_region(n: int):
             vectors.append(v)
 
     return vectors
+
+
+def generate_base_region(n: int):
+    min_x = -np.power(2, float(n + 1))
+    max_x = np.power(2, float(n + 1))
+
+    min_y = min_x
+    max_y = max_x
+
+    points = []
+    for x in np.arange(min_x, max_x, step=1):
+        for y in np.arange(min_y, max_y, step=1):
+            points.append(g.Point(x, y))
+
+    combinations = itr.combinations(points, r=3)
+
+
 
 
 def generate_parallelogram(p1, p2, h):
@@ -100,7 +119,7 @@ def congruent(t1: g.Triangle, t2: g.Triangle):
     convert = lambda x: [float(i) for i in x]
 
     t2_orderings = list(map(convert, [s1, s2, s3, r1, r2, r3]))
-    t1_orderings = list(map(convert, [t1_ordering]*len(t2_orderings)))
+    t1_orderings = list(map(convert, [t1_ordering] * len(t2_orderings)))
 
     return np.array_equal(t1_orderings, t2_orderings)
 
@@ -111,27 +130,30 @@ def generate_triangles(n: int, bases: [g.Segment]):
     triangles = []
     for base in bases:
         height = (2 * area) / float(base.length)
-        p1, p2, p3, p4 = generate_parallelogram(base.p1, base.p2, height)
-        al = g.Segment(p3, p4)
+        try:
+            p1, p2, p3, p4 = generate_parallelogram(base.p1, base.p2, height)
+            al = g.Segment(p3, p4)
 
-        y = lambda x: al.slope * (x - float(p3.x)) + float(p3.y)
-        min_x = np.ceil(float(p3.x))
-        max_x = np.floor(float(p4.x))
+            y = lambda x: al.slope * (x - float(p3.x)) + float(p3.y)
+            min_x = np.ceil(float(p3.x))
+            max_x = np.floor(float(p4.x))
 
-        for x in np.arange(min_x, max_x, step=1):
-            x_test = float(x) % 1 == 0
-            y_p = y(x)
-            y_test = float(y_p) % 1 == 0
-            if x_test and y_test:
-                p3 = g.Point(x, y_p)
-                t = g.Triangle(base.p1, base.p2, p3)
-                triangles.append(t)
+            for x in np.arange(min_x, max_x, step=1):
+                x_test = float(x) % 1 == 0
+                y_p = y(x)
+                y_test = float(y_p) % 1 == 0
+                if x_test and y_test:
+                    p3 = g.Point(x, y_p)
+                    t = g.Triangle(base.p1, base.p2, p3)
+                    triangles.append(t)
+        except ValueError:
+            pass
 
     acute_output = []
     for t in triangles:
         append = True
         for vertex, angle in t.angles.items():
-            if float(angle) >= np.pi / 2 or angle <= 0:
+            if float(angle) > np.pi / 2 or angle <= 0:
                 append = False
 
         if append:
@@ -144,7 +166,7 @@ def generate_triangles(n: int, bases: [g.Segment]):
             for o in output:
                 if not congruent(ao, o):
                     additional.append(ao)
-            new_output = list(set(output+additional))
+            new_output = list(set(output + additional))
             output = new_output
 
         output = list(set(output))
@@ -155,8 +177,10 @@ def generate_triangles(n: int, bases: [g.Segment]):
 
 
 if __name__ == "__main__":
-    for i in range(1, 10):
+    for i in range(1, 4):
         vectors = generate_base_region(i)
         triangles = generate_triangles(i, vectors)
 
         print(i, len(triangles))
+
+    # print(_generate_base_region(2))
