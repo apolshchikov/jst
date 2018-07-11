@@ -142,14 +142,22 @@ def calculate_area(arr):
 def triangle(arr):
     shifted = np.roll(arr, -1, axis=0)
     v = shifted - arr
-    v = np.array([[1, 1, -1], [1, 1, -1]]).dot(v)
-    print(v)
+    v = np.array([v[0], v[1], -v[2]])
     norms = np.apply_along_axis(np.linalg.norm, 1, v)
-    shifted_norms = np.roll(norms, -1, axis=0)
+    shifted_v = np.roll(v, -1, axis=0)
+    corresponding_norms = np.roll(norms, 1, axis=0)
 
-    # num = np.dot(norms, shifted_norms)
+    angles = []
+    for k, sv in zip(v, shifted_v):
+        cos_th = np.dot(k, sv) / (np.linalg.norm(k) * np.linalg.norm(sv))
+        angles.append(np.arccos(cos_th))
 
-    print(norms)
+    angles = np.array(angles)
+
+    output = np.array([angles, corresponding_norms]).T
+    output = np.sort(output, axis=0)
+
+    return output
 
 
 def generate_combinations(points, n):
@@ -170,37 +178,33 @@ def generate_combinations(points, n):
 
 
 def valid_triangles(combinations):
-    vt = []
+    triangles = []
     for c in combinations:
-        points = [g.Point(*xy) for xy in c]
-        t = Triangle(*points)
-        print(c)
-        print(t.standardize())
+        t = triangle(c)
+        triangles.append(t)
+
+    triangles = np.array(triangles)
+    un = np.unique(triangles, axis=0)
+
+    return un
 
 
 def generate_triangles(n: int):
-    min_x = -np.power(2, float(n))
-    max_x = np.power(2, float(n))
+    min_x = -np.power(2, float(n+1))
+    max_x = np.power(2, float(n+1))
 
     min_y = min_x
     max_y = max_x
 
     points = generate_lattice(min_x, min_y, max_x, max_y)
     combinations = generate_combinations(points, n)
+    triangles = valid_triangles(combinations)
 
-    return len(combinations)
+    return n, len(triangles)
 
 
 if __name__ == "__main__":
-    k = 1
-    min_x = -np.power(2, k)
-    max_x = np.power(2, k)
-    min_y = min_x
-    max_y = max_x
+    k = range(1, 8)
 
-    ps = generate_lattice(min_x, min_y, max_x, max_y)
-    combs = generate_combinations(ps, k)
-    t1 = combs[1:6]
-    # valid_triangles(t1)
-    triangle(t1[0])
-    # [print(generate_triangles(i)) for i in range(1, 3)]
+    for z in k:
+        print(generate_triangles(z))
