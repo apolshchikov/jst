@@ -4,6 +4,9 @@ from matplotlib.path import Path
 import matplotlib.patches as patches
 from matplotlib.collections import PatchCollection
 import sympy.geometry as g
+import time
+
+import timeit
 
 import itertools as itr
 
@@ -119,27 +122,55 @@ class Triangle(g.Triangle):
         return np.array(vertices)
 
 
-def generate_lattice(min_x, min_y, max_x, max_y):
+def generate_lattice(min_x: int, min_y: int, max_x: int, max_y: int) -> np.ndarray:
     g = np.mgrid[min_x:max_x + 1, min_y:max_y + 1]
     pos = np.vstack(map(np.ravel, g)).T
 
     return pos
 
 
-def check_linear(arr):
+def check_linear(arr: np.ndarray) -> bool:
     test = np.all(arr == arr[0, :], axis=0)
     return any(test)
 
 
-def calculate_area(arr):
-    ones = np.ones((3, 1))
+def check_linear_arr(arrs):
+    # test = np.apply_along_axis(check_linear, 1, arrs)
+    t = arrs[:, :, 0]
+    shift_t = np.roll(t, 1, axis=1)
+    test = np.all((t==shift_t), axis=1)
+    index_pos = np.where(~test)[0]
+    # print(index_pos)
+    # result = np.empty(arrs.shape[0])
+    # for i in range(len(arrs)):
+    #     result[i] = check_linear(arrs[i])
+    # index_pos = np.where(result != float(1))
+
+    return arrs[index_pos]
+
+
+ones = np.ones((3, 1))
+
+
+def calculate_area(arr: np.ndarray) -> np.float:
     t = np.hstack((ones, arr))
+    # t = np.append(ones, arr, axis=1)
     area = float(0.5) * abs(np.linalg.det(t.T))
 
     return area
 
 
-def triangle(arr):
+def calculate_area_arr(arrs, area_requirement):
+    test = np.append(np.ones((arrs.shape[0], arrs.shape[1], 1)), arrs, axis=2)
+    dets = float(0.5) * np.absolute(np.linalg.det(test))
+    result = dets
+
+    index_pos = np.isclose(result, area_requirement, atol=TOLERANCE)
+
+    return arrs[index_pos]
+
+
+def triangle(arr: np.ndarray) -> np.ndarray:
     shifted = np.roll(arr, -1, axis=0)
     v = shifted - arr
     v = np.array([v[0], v[1], -v[2]])
@@ -154,57 +185,81 @@ def triangle(arr):
 
     angles = np.array(angles)
 
-    output = np.array([angles, corresponding_norms]).T
+    angle_test = len(np.where(angles >= np.pi / 2)[0])
+
+    err = 16
+    output = np.array([np.round(angles, err), np.round(corresponding_norms, err)]).T
     output = np.sort(output, axis=0)
+
+    alternate_output = np.empty(output.shape)
+    alternate_output[:, :] = -1
+
+    if angle_test != 0:
+        return alternate_output
 
     return output
 
 
-def generate_combinations(points, n):
+def triangle_arr(arrs):
+    result = np.empty(arrs.shape)
+    for i in range(len(arrs)):
+        result[i] = triangle(arrs[i])
+
+    return result
+
+
+def generate_combinations(points: np.ndarray, n: int, verbose=False) -> np.ndarray:
     combinations = np.array(list(itr.combinations(points, r=3)))
-    valid_combinations = []
+    v1 = time.time()
+    valid_combinations = check_linear_arr(combinations)
+    v2 = time.time()
+    valid_combinations = calculate_area_arr(valid_combinations, np.power(2, n))
+    v3 = time.time()
 
-    for c in combinations:
-        check_nonlinear = not check_linear(c)
-
-        area = calculate_area(c)
-        check_area = np.isclose([area - np.power(2, n)], [0], atol=TOLERANCE)
-
-        checks = [check_nonlinear, check_area]
-        if all(checks):
-            valid_combinations.append(c)
+    if verbose:
+        print("Checking Linear: {0}s\nChecking Area: {1}s".format(np.round(v2 - v1, 2), np.round(v3 - v2, 2)))
 
     return np.array(valid_combinations)
 
 
-def valid_triangles(combinations):
-    triangles = []
-    for c in combinations:
-        t = triangle(c)
-        triangles.append(t)
-
-    triangles = np.array(triangles)
+def valid_triangles(combinations: np.ndarray) -> np.ndarray:
+    triangles = triangle_arr(combinations)
+    triangles = np.sort(triangles, axis=0)
     un = np.unique(triangles, axis=0)
 
     return un
 
 
-def generate_triangles(n: int):
-    min_x = -np.power(2, float(n+1))
-    max_x = np.power(2, float(n+1))
+def generate_triangles(n: int, verbose=False) -> [int, int, int]:
+    min_x = -np.power(2, float(n + 1))
+    max_x = np.power(2, float(n + 1))
 
     min_y = min_x
     max_y = max_x
 
+    t1 = time.time()
     points = generate_lattice(min_x, min_y, max_x, max_y)
-    combinations = generate_combinations(points, n)
+    t2 = time.time()
+    combinations = generate_combinations(points, n, verbose=verbose)
+    t3 = time.time()
     triangles = valid_triangles(combinations)
+    t4 = time.time()
 
-    return n, len(triangles)
+    if verbose:
+        print("Generating Lattices: {0}s\nGenerating Combinations: {1}s\nGenerating Triangles: {2}s".format(
+            np.round(t2 - t1, 2), np.round(t3 - t2, 2), np.round(t4 - t3, 2)))
+
+    return n, len(combinations), len(triangles)
 
 
 if __name__ == "__main__":
-    k = range(1, 8)
+    k = range(1, 3)
 
     for z in k:
-        print(generate_triangles(z))
+        print(generate_triangles(z, verbose=True))
+
+    # g = generate_lattice(-2, -2, 2, 2)
+    # combs = generate_combinations(g, 1)
+    # z = combs[1:6]
+    #
+    # check_linear_arr(z)
