@@ -129,45 +129,70 @@ def generate_lattice(min_x: int, min_y: int, max_x: int, max_y: int) -> np.ndarr
     return pos
 
 
-def check_linear(arr: np.ndarray) -> bool:
-    test = np.all(arr == arr[0, :], axis=0)
-    return any(test)
-
-
 def check_linear_arr(arrs):
-    # test = np.apply_along_axis(check_linear, 1, arrs)
-    t = arrs[:, :, 0]
-    shift_t = np.roll(t, 1, axis=1)
-    test = np.all((t==shift_t), axis=1)
-    index_pos = np.where(~test)[0]
-    # print(index_pos)
-    # result = np.empty(arrs.shape[0])
-    # for i in range(len(arrs)):
-    #     result[i] = check_linear(arrs[i])
-    # index_pos = np.where(result != float(1))
+    verification = lambda x: x == np.repeat(np.array([x[:, 0]]), 3, axis=0).T
+    reduction = lambda v: np.all(v, axis=1)
+    test = lambda t: reduction(verification(t))
 
-    return arrs[index_pos]
+    xs = test(arrs[:, :, 0])
+    ys = test(arrs[:, :, 1])
+    valid = ~np.any(np.array([xs, ys]).T, axis=1)
 
-
-ones = np.ones((3, 1))
-
-
-def calculate_area(arr: np.ndarray) -> np.float:
-    t = np.hstack((ones, arr))
-    # t = np.append(ones, arr, axis=1)
-    area = float(0.5) * abs(np.linalg.det(t.T))
-
-    return area
+    return arrs[valid]
 
 
 def calculate_area_arr(arrs, area_requirement):
     test = np.append(np.ones((arrs.shape[0], arrs.shape[1], 1)), arrs, axis=2)
     dets = float(0.5) * np.absolute(np.linalg.det(test))
-    result = dets
 
-    index_pos = np.isclose(result, area_requirement, atol=TOLERANCE)
+    index_pos = np.isclose(dets, area_requirement, atol=TOLERANCE)
 
     return arrs[index_pos]
+
+
+def generate_triangle_info(v):
+    crs = np.cross(v[:2], v[2:])
+    s = np.linalg.norm(crs)
+    c = np.dot(v[:2], v[2:])
+    return np.round(np.arctan2(s, c), 30)
+
+
+def triangle_data(arrs):
+    shifted = np.roll(arrs, 1, axis=1)
+    vertices = shifted - arrs
+    vertices[:, 2, :] = -vertices[:, 2, :]
+
+    sizes = np.apply_along_axis(np.linalg.norm, 2, vertices)
+    s_vertices = np.roll(vertices, 1, axis=1)
+
+    print(vertices)
+
+    m_vertices = np.concatenate([vertices, s_vertices], axis=2)
+
+    reverse1 = m_vertices[:, 2, :][:, :2]
+    reverse2 = m_vertices[:, 2, :][:, 2:]
+
+    reversed_c = np.concatenate([reverse2, reverse1], axis=1)
+
+    m_vertices[:, 2, :] = reversed_c
+
+    print(m_vertices)
+
+    angles = np.apply_along_axis(generate_triangle_info, 2, m_vertices)
+
+    test_acute = np.where(angles >= np.pi / 2)
+
+    acuteness = np.zeros(arrs.shape, dtype=bool)
+    acuteness[test_acute] = True
+
+    print(angles)
+
+
+def originate_triangles(arrs):
+    transform = np.array(arrs[:, 0, :]).repeat(3, axis=0).reshape(arrs.shape)
+    originated = arrs - transform
+
+    print(arrs, originated)
 
 
 def triangle(arr: np.ndarray) -> np.ndarray:
@@ -187,7 +212,7 @@ def triangle(arr: np.ndarray) -> np.ndarray:
 
     angle_test = len(np.where(angles >= np.pi / 2)[0])
 
-    err = 16
+    err = 64
     output = np.array([np.round(angles, err), np.round(corresponding_norms, err)]).T
     output = np.sort(output, axis=0)
 
@@ -253,7 +278,7 @@ def generate_triangles(n: int, verbose=False) -> [int, int, int]:
 
 
 if __name__ == "__main__":
-    k = range(1, 3)
+    k = range(1, 4)
 
     for z in k:
         print(generate_triangles(z, verbose=True))
