@@ -153,7 +153,10 @@ def calculate_area_arr(arrs, area_requirement):
 def generate_triangle_info(v):
     crs = np.cross(v[:2], v[2:])
     s = np.linalg.norm(crs)
-    c = np.dot(v[:2], v[2:])
+    if crs > 0:
+        c = -np.dot(v[:2], v[2:])
+    else:
+        c = np.dot(v[:2], v[2:])
     return np.round(np.arctan2(s, c), 30)
 
 
@@ -163,9 +166,9 @@ def triangle_data(arrs):
     vertices[:, 2, :] = -vertices[:, 2, :]
 
     sizes = np.apply_along_axis(np.linalg.norm, 2, vertices)
+    sizes = np.round(sizes, 30).reshape(arrs.shape[0], 3, 1)
+    sizes = np.sort(sizes, axis=1)
     s_vertices = np.roll(vertices, 1, axis=1)
-
-    print(vertices)
 
     m_vertices = np.concatenate([vertices, s_vertices], axis=2)
 
@@ -176,16 +179,15 @@ def triangle_data(arrs):
 
     m_vertices[:, 2, :] = reversed_c
 
-    print(m_vertices)
+    angles = np.apply_along_axis(generate_triangle_info, 2, m_vertices).reshape(arrs.shape[0], 3, 1)
+    angles = np.sort(angles, axis=1)
 
-    angles = np.apply_along_axis(generate_triangle_info, 2, m_vertices)
+    obtuse = np.where(angles >= np.pi / 2)
+    ob_arr = np.zeros(angles.shape)
+    ob_arr[obtuse] = True
+    mask = np.any(ob_arr, axis=1)
 
-    test_acute = np.where(angles >= np.pi / 2)
-
-    acuteness = np.zeros(arrs.shape, dtype=bool)
-    acuteness[test_acute] = True
-
-    print(angles)
+    print(mask)
 
 
 def originate_triangles(arrs):
@@ -280,11 +282,13 @@ def generate_triangles(n: int, verbose=False) -> [int, int, int]:
 if __name__ == "__main__":
     k = range(1, 4)
 
-    for z in k:
-        print(generate_triangles(z, verbose=True))
+    # for z in k:
+    #     print(generate_triangles(z, verbose=True))
 
-    # g = generate_lattice(-2, -2, 2, 2)
-    # combs = generate_combinations(g, 1)
-    # z = combs[1:6]
-    #
-    # check_linear_arr(z)
+    g = generate_lattice(-2, -2, 2, 2)
+    combs = generate_combinations(g, 1)
+    z = combs[1:3]
+
+    print(z)
+    triangle_data(z)
+
